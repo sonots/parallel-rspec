@@ -57,6 +57,8 @@ module RSpec
 
             worker = Worker.new(master, pids.size)
             $0 = "parallel-rspec worker [#{worker.number}]"
+            ENV["PARALLEL_RSPEC_WORKER_NUMBER"] = worker.number.to_s
+            configure_rspec
             RSpec::Parallel.configuration.after_fork_block.call(worker)
             worker.run
           end
