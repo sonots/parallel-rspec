@@ -15,10 +15,11 @@ module RSpec
 
       # @note RSpec must be configured ahead
       # @param args [Array<String>] command line arguments
-      def initialize(args)
+      # @param configuration [RSpec::Core::Configuration]
+      def initialize(args, configuration)
         @args = args
         @path = "/tmp/parallel-rspec-#{$PID}.sock"
-        @files_to_run = ::RSpec.configuration.files_to_run.uniq
+        @files_to_run = configuration.files_to_run.uniq
         @total = @files_to_run.size
         @server = ::UNIXServer.new(@path)
       end
