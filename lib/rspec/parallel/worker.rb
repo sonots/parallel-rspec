@@ -9,8 +9,8 @@ module RSpec
       # @param master [RSpec::Parallel::Master]
       # @param number [Integer]
       def initialize(master, number)
-        RSpec::Parallel.configuration.logger.debug("Initialize Iterator")
-        @iterator = Iterator.new(self, master.socket_builder)
+        RSpec::Parallel.configuration.logger.debug("Initialize Loader")
+        @loader = Loader.new(self, master.socket_builder)
         @number = number
         RSpec::Parallel.configuration.logger.debug("Initialize SpecRunner")
         @spec_runner = SpecRunner.new(master.args)
@@ -18,17 +18,16 @@ module RSpec
 
       # @return [void]
       def run
-        iterator.ping
-        spec_runner.run_specs(iterator).to_i
+        loader.ping
+        loader.load_example_groups
+        spec_runner.run_specs(RSpec.world.ordered_example_groups).to_i
       end
 
       private
 
-      attr_reader :iterator, :spec_runner
+      attr_reader :loader, :spec_runner
 
-      class Iterator
-        include Enumerable
-
+      class Loader
         # @param worker [RSpec::Parallel::Worker]
         # @param socket_builder [RSpec::Parallel::SocketBuilder]
         def initialize(worker, socket_builder)
@@ -55,8 +54,8 @@ module RSpec
           end
         end
 
-        # @yield [RSpec::Core::ExampleGroup]
-        def each
+        # @return [void]
+        def load_example_groups
           loop do
             socket = connect_to_distributor
             break if socket.nil?
@@ -69,12 +68,8 @@ module RSpec
             end
             path = socket.read(65_536)
             socket.close
-            RSpec.world.example_groups.clear
             RSpec::Parallel.configuration.logger.debug("Load #{path}")
             Kernel.load path
-            RSpec.world.example_groups.each do |example_group|
-              yield example_group
-            end
           end
         end
 
@@ -102,11 +97,10 @@ module RSpec
         # @param example_groups [Array<RSpec::Core::ExampleGroup>]
         # @return [Integer] exit status code
         def run_specs(example_groups)
-          # Reset filter manager to run all specs. Just for simplicity
-          # TODO: Support config.run_all_when_everything_filtered = true
-          @configuration.filter_manager = RSpec::Core::FilterManager.new
+          @world.announce_filters
+          examples_count = @world.example_count(example_groups)
 
-          success = @configuration.reporter.report(0) do |reporter|
+          success = @configuration.reporter.report(examples_count) do |reporter|
             # In genaral, ExampleGroup is configured by evaluating `describe`
             # before `with_suite_hooks`
             RSpec::Core::ExampleGroup.ensure_example_groups_are_configured

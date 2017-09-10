@@ -14,10 +14,9 @@ module RSpec
         @args = args
         @pids = []
 
-        # Configure RSpec core before initialize master instance and spawning
-        # worker processes to share its configuration.
-        configure_rspec
-        @master = Master.new(args)
+        configuration = RSpec::Core::Configuration.new
+        configure_rspec(configuration)
+        @master = Master.new(args, configuration)
       end
 
       # @return [void]
@@ -44,7 +43,7 @@ module RSpec
       # @return [RSpec::Parallel::Master]
       attr_reader :master
 
-      # @param master [RSpec::Parallel::Master]
+      # @return [void]
       def spawn_worker
         pid = Kernel.fork do
           master.close
@@ -57,7 +56,10 @@ module RSpec
 
             worker = Worker.new(master, pids.size)
             $0 = "parallel-rspec worker [#{worker.number}]"
+            # TEST_ENV_NUMBER is used by parallel_tests
+            ENV["PARALLEL_RSPEC_WORKER_NUMBER"] = ENV["TEST_ENV_NUMBER"] = worker.number.to_s
             RSpec::Parallel.configuration.after_fork_block.call(worker)
+            configure_rspec(::RSpec.configuration)
             worker.run
           end
 
@@ -73,9 +75,9 @@ module RSpec
         "/tmp/parallel-rspec-worker-#{pid}"
       end
 
-      def configure_rspec
+      def configure_rspec(configuration)
         options = ::RSpec::Core::ConfigurationOptions.new(args)
-        options.configure(::RSpec.configuration)
+        options.configure(configuration)
       end
     end
   end
