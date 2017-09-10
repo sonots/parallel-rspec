@@ -54,7 +54,7 @@ module RSpec
           end
         end
 
-        # @yield [RSpec::Core::ExampleGroup]
+        # @return [void]
         def load_example_groups
           loop do
             socket = connect_to_distributor
