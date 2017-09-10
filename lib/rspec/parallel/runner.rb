@@ -43,7 +43,7 @@ module RSpec
       # @return [RSpec::Parallel::Master]
       attr_reader :master
 
-      # @param master [RSpec::Parallel::Master]
+      # @return [void]
       def spawn_worker
         pid = Kernel.fork do
           master.close
